@@ -10,3 +10,6 @@ In this chapter, we will learn about the concept of  threads. Threads are a way 
 
 # Chapter 2: Client & server examples with threads
 In this chapter, we will learn about the concept of client and server. Client is a program that sends a request to a server. Server is a program that receives a request from a client.
+
+# Chapter 3: Poll and select
+In this chapter, we will learn about the concept of poll and select. Poll is a way to check if a socket is ready to read or write. Select is also a way to check if a socket is ready to read or write.
