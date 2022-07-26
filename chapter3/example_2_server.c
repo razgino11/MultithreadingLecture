@@ -87,10 +87,12 @@ int main(int argc , char *argv[])
     addrlen = sizeof(server);
     while (TRUE)
     {        
-        int ret = poll(fds, num_of_connections, -1);
+        // use select to select the correct fd
+        int ret = select(num_of_connections, &fds[0], NULL, NULL, NULL);
+
         if (ret <= 0)
         {
-            perror("poll error");
+            perror("select error");
             exit(EXIT_FAILURE);
         }
 
