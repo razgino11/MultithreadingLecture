@@ -137,8 +137,10 @@ void* connection_handler(void *arg)
     clean_string(client_name, n);
     client_name[n] = '\0';
 
-    // print the client's name    
+    // print the client's name 
+    pthread_mutex_lock(&print_mutex);
     printf("%s has joined the chat!\n", client_name);
+    pthread_mutex_unlock(&print_mutex);       
     
     char buffer[1024] = {0};
     size_t valread = 0;
@@ -149,7 +151,9 @@ void* connection_handler(void *arg)
         {
             clean_string(buffer, valread);
             buffer[valread] = '\0';  
+            pthread_mutex_lock(&print_mutex);
             printf("%s: %s\n", client_name, buffer);
+            pthread_mutex_unlock(&print_mutex);
         }
 
         sleep(0.1);
