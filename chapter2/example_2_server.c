@@ -16,7 +16,9 @@
 #define PORT 8888 
 #define MAX_CLIENTS 2000
 
-void* connection_handler(void *arg);
+void* send_handler(void *arg);
+void* receive_handler(void *arg);
+
 void clean_string(char *str, int len);
 
 pthread_mutex_t print_mutex;
@@ -69,33 +71,18 @@ int main(int argc , char *argv[])
         perror("listen\n");
         exit(EXIT_FAILURE);
     }
+
+    printf("Waiting for a connection...\n");
+    struct sockaddr_in address;
+    int new_socket = accept(master_socket, (struct sockaddr*)&address, (socklen_t*)&addrlen);
+    printf("Accepted new connection with fd=%d\n", new_socket);
     
-    addrlen = sizeof(server);
-    pthread_t threads[MAX_CLIENTS];
-    int num_of_connections = 0;
-
-    while (num_of_connections < MAX_CLIENTS)
-    {        
-        struct sockaddr_in address;
-        int new_socket = accept(master_socket, (struct sockaddr*)&address, (socklen_t*)&addrlen);
-        printf("Accepted new connection with fd=%d\n", new_socket);
-
-        if (new_socket < 0)
-        {
-            exit(EXIT_FAILURE);
-        }
-
-        pthread_t thread;
-        pthread_create(&thread, NULL, connection_handler, (void*) &new_socket);;     
-        threads[num_of_connections] = thread;
-
-        num_of_connections += 1;
-    }
-
-    for (int i = 0; i < MAX_CLIENTS; i++)
-    {
-        pthread_join(threads[i], NULL);
-    }
+    pthread_t receive_thread, send_thread;
+    // use the 2 threads
+    pthread_create(&receive_thread, NULL, receive_handler, (void*)&new_socket);
+    pthread_create(&send_thread, NULL, send_handler, (void*)&new_socket);
+    pthread_join(receive_thread, NULL);
+    pthread_join(send_thread, NULL);
     
     return 0;  
 }  
@@ -117,43 +104,43 @@ void clean_string(char *str, int len)
     str[non_space_count] = '\0';
 }
 
-void* connection_handler(void *arg)
+void* send_handler(void *arg)
 {
     int socket_fd = *(int*)arg;
-
-    // request the client's name
-    char request_name[] = "Please enter your name: ";
-    write(*(int*)arg, request_name, strlen(request_name));
-
-    // receive it into the buffer
-    char client_name[100] = {0};
-    int n = recv(socket_fd, client_name, 100, 0);
-    if (n < 0)
-    {
-        exit(EXIT_FAILURE);
-    }
     
-    // replace invalid chars in the name
-    clean_string(client_name, n);
-    client_name[n] = '\0';
+    char buffer[1024] = {0};
+    // loop until the client disconnects and print their messages
+    while (TRUE)
+    {
+        // accept a string from console
+        printf("> ");
+        fgets(buffer, 1024, stdin);
 
-    // print the client's name 
-    pthread_mutex_lock(&print_mutex);
-    printf("%s has joined the chat!\n", client_name);
-    pthread_mutex_unlock(&print_mutex);       
+        // send the string to the client
+        if (strlen(buffer) > 0)
+        {
+            send(socket_fd, buffer, strlen(buffer), 0);
+        }
+        
+        sleep(0.1);
+    }
+}
+
+void* receive_handler(void *arg)
+{
+    int socket_fd = *(int*)arg;
     
     char buffer[1024] = {0};
     int valread = 0;
     // loop until the client disconnects and print their messages
     while (TRUE)
     {
-        if ((valread = read( socket_fd , buffer, 1024)) > 0)
+        if ((valread = read(socket_fd , buffer, 1024)) > 0)
         {
             clean_string(buffer, valread);
             buffer[valread] = '\0';  
-            pthread_mutex_lock(&print_mutex);
-            printf("%s: %s\n", client_name, buffer);
-            pthread_mutex_unlock(&print_mutex);
+            printf("\rClient: %s\n> ", buffer);
+            fflush(stdout);
         }
 
         sleep(0.1);
