@@ -18,7 +18,6 @@
 #define PORT 8888 
 #define MAX_CLIENTS 2000
 
-void* connection_handler(void *arg);
 void clean_string(char *str, int len);
 
 pthread_mutex_t print_mutex;
@@ -41,6 +40,7 @@ void signal_handler(int sig)
 
 int main(int argc , char *argv[])  
 {  
+    printf("start\n");
     // initialize poll values fd
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
@@ -75,22 +75,20 @@ int main(int argc , char *argv[])
     }
     
     // put the socket into listening mode with max of 10 pending connections
-    int listen_socket = listen(master_socket, 10);
-    if (listen_socket < 0)
+    if (listen(master_socket, 10) < 0)
     {
         perror("listen\n");
         exit(EXIT_FAILURE);
     }
-
     // add the listen socket so that we can poll for incoming connections
-    fds[num_of_connections].fd = listen_socket;
+    fds[num_of_connections].fd = master_socket;
     fds[num_of_connections].events = POLLIN;
     num_of_connections += 1;
     
     addrlen = sizeof(server);
-
     while (TRUE)
     {        
+        printf("polling\n");
         int ret = poll(fds, num_of_connections, -1);
         if (ret <= 0)
         {
@@ -101,7 +99,7 @@ int main(int argc , char *argv[])
         for (int i = 0; i < num_of_connections; i++)
         {
             // the first index in the array is for accepting new connections
-            if (fds[0].revents & POLLIN)
+            if (i == 0 && (fds[0].revents & POLLIN))
             {
                 struct sockaddr_in address;
                 int new_socket = accept(master_socket, (struct sockaddr*)&address, (socklen_t*)&addrlen);
@@ -113,19 +111,18 @@ int main(int argc , char *argv[])
                 }
 
                 fds[num_of_connections].fd = new_socket;
-                fds[num_of_connections].events = POLLIN;
+                fds[num_of_connections].events = POLLRDNORM;
                 num_of_connections += 1;
                 continue;
             }
-            
-
-            if (fds[i].revents & (POLLRDNORM | POLLERR))
+            if (i != 0 && (fds[i].revents & (POLLRDNORM | POLLERR)))
             {   
                 // read the message from the client
                 char buffer[1024] = {0};
                 int bytes_read = read(fds[i].fd, buffer, 1024);
                 if (bytes_read > 0)
                 {
+                    clean_string(buffer, strlen(buffer));
                     printf("fd: %s\n", buffer);
                 }
             }
@@ -150,47 +147,4 @@ void clean_string(char *str, int len)
     }
 
     str[non_space_count] = '\0';
-}
-
-void* connection_handler(void *arg)
-{
-    int socket_fd = *(int*)arg;
-
-    // request the client's name
-    char request_name[] = "Please enter your name: ";
-    write(*(int*)arg, request_name, strlen(request_name));
-
-    // receive it into the buffer
-    char client_name[100] = {0};
-    int n = recv(socket_fd, client_name, 100, 0);
-    if (n < 0)
-    {
-        exit(EXIT_FAILURE);
-    }
-    
-    // replace invalid chars in the name
-    clean_string(client_name, n);
-    client_name[n] = '\0';
-
-    // print the client's name 
-    pthread_mutex_lock(&print_mutex);
-    printf("%s has joined the chat!\n", client_name);
-    pthread_mutex_unlock(&print_mutex);       
-    
-    char buffer[1024] = {0};
-    int valread = 0;
-    // loop until the client disconnects and print their messages
-    while (TRUE)
-    {
-        if ((valread = read( socket_fd , buffer, 1024)) > 0)
-        {
-            clean_string(buffer, valread);
-            buffer[valread] = '\0';  
-            pthread_mutex_lock(&print_mutex);
-            printf("%s: %s\n", client_name, buffer);
-            pthread_mutex_unlock(&print_mutex);
-        }
-
-        sleep(0.1);
-    }
 }
