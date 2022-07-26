@@ -40,7 +40,6 @@ void signal_handler(int sig)
 
 int main(int argc , char *argv[])  
 {  
-    printf("start\n");
     // initialize poll values fd
     for (int i = 0; i < MAX_CLIENTS; i++)
     {
@@ -88,7 +87,6 @@ int main(int argc , char *argv[])
     addrlen = sizeof(server);
     while (TRUE)
     {        
-        printf("polling\n");
         int ret = poll(fds, num_of_connections, -1);
         if (ret <= 0)
         {
@@ -123,7 +121,7 @@ int main(int argc , char *argv[])
                 if (bytes_read > 0)
                 {
                     clean_string(buffer, strlen(buffer));
-                    printf("fd: %s\n", buffer);
+                    printf("client: %s\n", buffer);
                 }
             }
         }
