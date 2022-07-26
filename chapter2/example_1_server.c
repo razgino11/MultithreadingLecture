@@ -21,7 +21,7 @@ void clean_string(char *str, int len);
 
 pthread_mutex_t print_mutex;
 struct sockaddr_in server;
-int master_socket , addrlen;
+int master_socket, addrlen;
 
 // bind the signal exit and release the port if the program closes
 void signal_handler(int sig)
@@ -37,7 +37,10 @@ void signal_handler(int sig)
 
 int main(int argc , char *argv[])  
 {  
+    // bind the signal exit and release the port if the program closes
     signal(SIGINT, signal_handler);
+
+    // create a master socket that will listen for incoming connections
     if ((master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0)
     {
         perror("socket failed\n");
@@ -48,9 +51,11 @@ int main(int argc , char *argv[])
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(PORT);
 
+    // setting reuseaddr to true to avoid the error message "Address already in use"
     int reuse = 1;
     if (setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
         perror("setsockopt(SO_REUSEADDR) failed");
+
     // bind the socket to localhost port 8080
     if (bind(master_socket, (struct sockaddr *)&server, sizeof(server)) < 0)
     {
@@ -68,40 +73,32 @@ int main(int argc , char *argv[])
     addrlen = sizeof(server);
     pthread_t threads[MAX_CLIENTS];
     int num_of_connections = 0;
-    while (TRUE)
-    {
-        if (num_of_connections >= MAX_CLIENTS)
-        {
-            exit(EXIT_FAILURE);
-        }
+
+    while (num_of_connections < MAX_CLIENTS)
+    {        
         struct sockaddr_in address;
-        int new_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-        printf("accepted in main fd=%d\n", new_socket);
+        int new_socket = accept(master_socket, (struct sockaddr*)&address, (socklen_t*)&addrlen);
+        printf("Accepted new connection with fd=%d\n", new_socket);
+
         if (new_socket < 0)
         {
             exit(EXIT_FAILURE);
         }
+
         pthread_t thread;
-        printf("new connection\n");
         pthread_create(&thread, NULL, connection_handler, (void*) &new_socket);;     
         threads[num_of_connections] = thread;
 
         num_of_connections += 1;
-        sleep(1);
     }
 
-
-    for (int i=0; i<MAX_CLIENTS;i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
         pthread_join(threads[i], NULL);
     }
     
-   return 0;
+    return 0;  
 }  
-
-char* removeTabsFromStr(char *string)
-{
-}
 
 // replace invalid chars in the string
 void clean_string(char *str, int len)
@@ -148,7 +145,6 @@ void* connection_handler(void *arg)
     // loop until the client disconnects and print their messages
     while (TRUE)
     {
-        
         if ((valread = read( socket_fd , buffer, 1024)) > 0)
         {
             clean_string(buffer, valread);
