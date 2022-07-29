@@ -1,0 +1,3 @@
+in case of panic use
+gcc example_x.c -o output
+./output
