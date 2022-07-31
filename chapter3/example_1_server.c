@@ -137,7 +137,7 @@ void clean_string(char *str, int len)
  
     for (int i = 0; str[i] != '\0'; i++)
     {
-        if (str[i] > 32 && str[i] < 126)
+        if (str[i] >= 32 && str[i] < 126)
         {
             str[non_space_count] = str[i];
             non_space_count++;
